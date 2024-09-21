@@ -1,7 +1,15 @@
+import os
 import streamlit as st
 from pptx import Presentation
 from pptx.util import Inches, Pt
 import datetime
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# 加載環境變量並配置Google Generative AI
+load_dotenv()
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+model = genai.GenerativeModel('gemini-pro')
 
 def convert_markdown_to_pptx(markdown_text, slide_format, font_size, font_family):
     if not markdown_text.strip():
@@ -55,36 +63,32 @@ def convert_markdown_to_pptx(markdown_text, slide_format, font_size, font_family
     if current_section:
         add_section_to_slide(current_section, current_section_title)
 
-    # 取得現在時間日期
     now = datetime.datetime.now()
-
-    # 格式化時間日期字串
     formatted_datetime = now.strftime("%Y-%m-%d-%H-%M-%S")
-
     save_path = f"{formatted_datetime}-Presentation.pptx"
     ppt.save(save_path)
     
     return save_path
 
 def main():
-    st.set_page_config(page_title="I LOVE PPT Web V1.0", page_icon=":memo:")
+    st.set_page_config(page_title="I LOVE PPT & SQL Generator", page_icon=":memo:")
     
     st.markdown(
         """
         <div style="text-align:center;">
-            <h1>I LOVE PPT Web V1.0</h1>
+            <h1>I LOVE PPT & SQL Generator</h1>
             <p>Created by ECF、CTF and CCWu</p>
         </div>
         """,
         unsafe_allow_html=True
     )
 
+    # PPTX 生成部分
+    st.header("Markdown to PPTX Converter")
+    
     markdown_text = st.text_area("Markdown Input", height=300, placeholder="Enter Markdown here...")
-
     slide_format = st.selectbox("Slide Format", ["Widescreen (16:9)", "Standard (4:3)"], index=0)
-
     font_size = st.selectbox("Font Size", [str(i) for i in range(8, 97)], index=10)
-
     font_family = st.selectbox("Font Family", [
         "Calibri", "Arial", "Times New Roman", "Verdana", "Courier New", "Georgia",
         "Garamond", "Comic Sans MS", "Trebuchet MS", "Palatino Linotype",
@@ -104,6 +108,41 @@ def main():
                     file_name=save_path,
                     mime="application/vnd.openxmlformats-officedocument.presentationml.presentation"
                 )
+
+    # SQL 查詢生成部分
+    st.header("SQL Query Generator")
+    
+    input_query = st.text_area("Enter your query here in Plain Language:")
+
+    if st.button("Generate SQL Query"):
+        template = f"""
+        Create a SQL query snippet using the below text:
+        ```
+        {input_query}
+        ```
+        I just want a SQL Query.
+        """
+        
+        response = model.generate_content(template)
+        
+        sql_query = response.text.strip().lstrip("```sql").rstrip("```")
+
+        with st.container():
+            st.success("SQL query generated successfully:")
+            st.code(sql_query, language="sql")
+
+            expected_output_template = f"""
+            What would be the expected response of this SQL query snippet:
+            ```sql
+            {sql_query}
+            ```
+            Provide sample table Response:
+            """
+            
+            expected_response = model.generate_content(expected_output_template)
+            
+            st.success("Expected Output of this SQL query will be:")
+            st.markdown(expected_response.text)
 
 if __name__ == '__main__':
     main()
